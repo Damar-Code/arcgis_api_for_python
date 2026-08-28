@@ -1,9 +1,11 @@
 import os
+import shutil
 import tempfile
 from dotenv import load_dotenv
 from arcgis.gis import GIS, ItemProperties, ItemTypeEnum
 import yaml
 import geopandas as gpd
+import pyogrio
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -12,23 +14,29 @@ load_dotenv(os.path.join(project_root, ".env"))
 with open(os.path.join(project_root, "variables.yaml"), "r", encoding="utf-8") as f:
     variables = yaml.safe_load(f) or {}
 
-data_path = variables.get("gpa_crop_establishment_targets")
-data_gdf = gpd.read_file(data_path)
-if data_gdf.crs != 'EPSG:3857':
-    print('Incorrect Refference System, require epsg:3857. Execute reproject layer')
-    gdf_3857 = data_gdf.to_crs(epsg=3857)
-    data_path = os.path.join(tempfile.mkdtemp(), "gpa_crop_establishment_targets_3857.gpkg")
-    gdf_3857.to_file(data_path, driver="GPKG")
-    print('Successsfully convert to epsg:3857')
 
-if not data_path:
-    raise KeyError("variables.yaml does not contain 'crop_establishment_targets'")
+gpkg_gaps_path  = variables.get("gapsAR_database")
+layers          = pyogrio.list_layers(gpkg_gaps_path)
+gapsAR_database = gpd.read_file(gpkg_gaps_path, layer=layers[-1][0])
 
-if not os.path.isabs(data_path):
-    data_path = os.path.join(project_root, data_path)
+temp_folder = os.path.join(os.path.dirname(gpkg_gaps_path), "gpa_gaps_detection_planting")
+os.makedirs(temp_folder, exist_ok=True)
+temp_gapsAR_path = f'{temp_folder}/gpa_gaps_detection_planting.shp'
 
-if not os.path.exists(data_path):
-    raise FileNotFoundError(f"GeoPackage not found at: {data_path}")
+rename_map = {
+    "cls_area_m2":      "cls_m2",
+    "cls_area_ha":      "cls_ha",
+    "cls_percentage":   "cls_pct",
+    "cluster_planting": "clst_plnt",
+    "cluster_area_m2":  "clst_m2",
+    "cluster_area_ha":  "clst_ha",
+}
+
+gapsAR_database_temp = gapsAR_database.rename(columns=rename_map)
+gapsAR_database_temp.to_file(temp_gapsAR_path, driver='ESRI Shapefile')
+
+# AGOL requires shapefiles uploaded as a single .zip containing the .shp/.shx/.dbf/.prj siblings
+temp_gapsAR_zip = shutil.make_archive(temp_folder, 'zip', temp_folder)
 
 try:
     gis = GIS(
@@ -39,7 +47,7 @@ try:
 except Exception as e:
     raise RuntimeError(f"Failed to authenticate to ArcGIS Portal: {e}")
 
-title = "gpa_crop_establishment_targets"
+title = "gpa_gaps_detection_planting"
 folder_name = "farm_intelligence_systems"
 target_folder = gis.content.folders.get(folder=folder_name, owner=gis.users.me.username)
 if target_folder is None:
@@ -47,7 +55,7 @@ if target_folder is None:
 
 existing = gis.content.search(
     query=f'title:"{title}" AND owner:{gis.users.me.username}',
-    item_type="GeoPackage"
+    item_type="Shapefile"
 )
 
 if existing:
@@ -73,16 +81,20 @@ if existing:
 # Always re-create fresh after delete (or if nothing existed)
 item_props = ItemProperties(
     title=title,
-    item_type=ItemTypeEnum.GEOPACKAGE.value,
+    item_type=ItemTypeEnum.SHAPEFILE.value,
     tags=["GPA", "crop establishment", "target", "sugarcane", "paddock"],
     description="Crop Establishment Targets for GPA.",
 )
 
 add_job = target_folder.add(
     item_properties=item_props,
-    file=data_path
+    file=temp_gapsAR_zip
 )
 item = add_job.result()  # resolve the async add operation into an actual Item
 
-feature_layer_item = item.publish()
+feature_layer_item = item.publish(
+    publish_parameters={"name": title, "targetSR": {"wkid": 32754}}
+)
 print(f"Published new layer: {feature_layer_item.url}")
+shutil.rmtree(temp_folder)
+os.remove(temp_gapsAR_zip)
