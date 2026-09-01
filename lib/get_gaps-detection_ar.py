@@ -1,12 +1,8 @@
 import os
-import shutil
-import tempfile
 from dotenv import load_dotenv
-from arcgis.gis import GIS, ItemProperties, ItemTypeEnum
+from arcgis.gis import GIS
 import yaml
 import geopandas as gpd
-import pyogrio
-from arcgis.features import FeatureLayer
 import zipfile
 from datetime import datetime, timezone, timedelta
 
