@@ -22,7 +22,16 @@ companies_run   = cfg['companies_run']
 c1              = cfg['c1']
 c2              = cfg['c2']
 
-def arcgis_push(companies_select):
+try:
+    credential = GIS(
+        os.getenv("ARCGIS_PORTAL_URL"),
+        os.getenv("ARCGIS_USERNAME"),
+        os.getenv("ARCGIS_PASSWORD")
+    )
+except Exception as e:
+    raise RuntimeError(f"Failed to authenticate to ArcGIS Portal: {e}")
+
+def arcgisPush_gapsDetection(companies_select, gis):
     print('entering process:', companies_select)
     gpkg_gaps_path        = cfg['companies'][companies_select]['gpkg_gaps_planting_path']
 
@@ -51,15 +60,6 @@ def arcgis_push(companies_select):
 
     # AGOL requires shapefiles uploaded as a single .zip containing the .shp/.shx/.dbf/.prj siblings
     temp_gapsAR_zip = shutil.make_archive(temp_folder, 'zip', temp_folder)
-
-    try:
-        gis = GIS(
-            os.getenv("ARCGIS_PORTAL_URL"),
-            os.getenv("ARCGIS_USERNAME"),
-            os.getenv("ARCGIS_PASSWORD")
-        )
-    except Exception as e:
-        raise RuntimeError(f"Failed to authenticate to ArcGIS Portal: {e}")
 
     folder_name = "farm_intelligence_systems"
     target_folder = gis.content.folders.get(folder=folder_name, owner=gis.users.me.username)
@@ -116,5 +116,5 @@ def arcgis_push(companies_select):
 if __name__ == "__main__":
    for i in range(len(companies_run)):
        company_select = companies_run[i]
-       arcgis_push(companies_select=company_select)
+       arcgisPush_gapsDetection(companies_select=company_select, gis=credential)
        print(company_select, 'Successfully Processed ......')
