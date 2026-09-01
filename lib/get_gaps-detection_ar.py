@@ -5,6 +5,7 @@ import yaml
 import geopandas as gpd
 import zipfile
 from datetime import datetime, timezone, timedelta
+import shutil
 
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -105,6 +106,10 @@ def arcgis_get(companies_select):
         layer=layer_name,
         driver='GPKG'
     )
+
+    # delete all tempfile
+    shutil.rmtree(extract_dir)
+    os.remove(zip_file)
 
 # Entery Point
 if __name__ == "__main__":
