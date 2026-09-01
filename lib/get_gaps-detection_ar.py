@@ -96,7 +96,7 @@ def arcgis_get(companies_select):
 
     gapsAR_updateTemp = gapsAR_update.rename(columns=rename_map)
     modified_date = layerMetaDataSelected["modified"].strftime("%Y%m%d")
-    layer_name = f'Gaps-Detection_GPA_{modified_date}_Planting_AR_Check'
+    layer_name = f'Gaps-Detection_{company_select}_{modified_date}_Planting_AR_Check'
 
     print(gapsAR_updateTemp.head())
 
