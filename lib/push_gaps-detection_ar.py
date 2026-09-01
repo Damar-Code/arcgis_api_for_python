@@ -22,7 +22,7 @@ companies_run   = cfg['companies_run']
 c1              = cfg['c1']
 c2              = cfg['c2']
 
-def arc_push(companies_select):
+def arcgis_push(companies_select):
     print('entering process:', companies_select)
     gpkg_gaps_path        = cfg['companies'][companies_select]['gpkg_gaps_planting_path']
 
@@ -116,5 +116,5 @@ def arc_push(companies_select):
 if __name__ == "__main__":
    for i in range(len(companies_run)):
        company_select = companies_run[i]
-       arc_push(companies_select=company_select)
+       arcgis_push(companies_select=company_select)
        print(company_select, 'Successfully Processed ......')
